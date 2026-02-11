@@ -1,12 +1,18 @@
 #include <stdio.h>
+#include <time.h>
 #include "filesystem.h"
 #include "utils.h"
+
+unsigned long long fs_get_time() {
+    return (unsigned long long)time(0);
+}
 
 static TreeNode *fs_root = 0;
 static TreeNode *fs_cwd = 0;
 
 static TreeNode *fs_create_node(const char *name, NodeType type) {
     TreeNode *n = (TreeNode *)u_malloc(sizeof(TreeNode));
+    unsigned long long now = fs_get_time();
     n->name = u_strdup(name);
     n->type = type;
     n->content = 0;
@@ -18,6 +24,8 @@ static TreeNode *fs_create_node(const char *name, NodeType type) {
     n->child_count = 0;
     n->child_capacity = 0;
     n->parent = 0;
+    n->created_at = now;
+    n->modified_at = now;
     return n;
 }
 
@@ -312,6 +320,7 @@ int fs_write(const char *path, const char *data, int append) {
     }
     if (!f || f->type != NODE_FILE) return -1;
     if (!f->perms_write) return -2;
+    f->modified_at = fs_get_time();
     if (!append) {
         if (!f->content) {
             f->content_capacity = len + 1;
@@ -526,6 +535,41 @@ int fs_move(const char *src_path, const char *dst_path) {
     } else {
         return fs_rmdir(src_path);
     }
+}
+
+int fs_rename(const char *path, const char *new_name) {
+    TreeNode *node;
+    TreeNode *parent;
+    TreeNode *exist;
+    int i;
+    
+    /* Validate new_name doesn't contain / */
+    for (i = 0; new_name[i] != 0; i++) {
+        if (new_name[i] == '/') return -1;
+    }
+    
+    node = fs_resolve(path, 0, 0);
+    if (!node) return -2;
+    if (node == fs_root) return -3; /* Cannot rename root */
+    
+    parent = node->parent;
+    if (!parent) return -4;
+    
+    /* Check if name already exists in same directory */
+    for (i = 0; i < parent->child_count; i++) {
+        if (parent->children[i] != node && 
+            u_strcmp(parent->children[i]->name, new_name) == 0) {
+            exist = parent->children[i];
+            return -5; /* Name already exists */
+        }
+    }
+    
+    /* Update the name */
+    u_free(node->name);
+    node->name = u_strdup(new_name);
+    node->modified_at = fs_get_time();
+    
+    return 0;
 }
 
 void fs_export_to_file(const char *filename, int *status) {

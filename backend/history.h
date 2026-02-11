@@ -17,6 +17,9 @@ typedef struct {
 void history_init(int max_size);
 void history_add(const char *cmd);
 int history_get_all(char ***out, int *count);
+char *history_prev();
+char *history_next();
+void history_reset_cursor();
 
 #endif
 

@@ -19,6 +19,13 @@ int u_find_char(const char *s, char c);
 int u_atoi(const char *s);
 void u_itoa(int v, char *buf);
 
+/* Levenshtein distance for command suggestions */
+int u_levenshtein(const char *s1, const char *s2);
+
+/* File extension validation */
+int u_is_valid_extension(const char *ext);
+char *u_get_extension(const char *filename);
+
 /* Simple dynamic buffer for building strings */
 typedef struct {
     char *data;

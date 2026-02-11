@@ -18,6 +18,8 @@ typedef struct TreeNode {
     int child_count;
     int child_capacity;
     struct TreeNode *parent;
+    unsigned long long created_at;
+    unsigned long long modified_at;
 } TreeNode;
 
 void fs_init();
@@ -44,9 +46,11 @@ int fs_chmod(const char *path, int readable, int writable);
 TreeNode *fs_find_node(const char *path);
 int fs_copy(const char *src_path, const char *dst_path);
 int fs_move(const char *src_path, const char *dst_path);
+int fs_rename(const char *path, const char *new_name);
 void fs_export_to_file(const char *filename, int *status);
 void fs_import_from_file(const char *filename, int *status);
 
 void fs_clear();
+unsigned long long fs_get_time();
 
 #endif

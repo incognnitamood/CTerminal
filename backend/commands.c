@@ -63,7 +63,21 @@ void commands_init() {
     trie_insert(trie_root, "mv");
     trie_insert(trie_root, "tree");
     trie_insert(trie_root, "complete");
+    trie_insert(trie_root, "rename");
+    trie_insert(trie_root, "stat");
+    trie_insert(trie_root, "history_prev");
+    trie_insert(trie_root, "history_next");
 }
+
+/* All command names for Levenshtein suggestions */
+static const char *all_commands[] = {
+    "mkdir", "ls", "cd", "touch", "write", "read", "rm",
+    "rmdir", "cat", "pwd", "cp", "mv", "rename", "stat",
+    "search", "chmod", "set", "get", "unset", "listenv",
+    "undo", "redo", "history", "tree", "export", "import", "help",
+    "complete", "log", "history_prev", "history_next"
+};
+static const int all_commands_count = 31;
 
 /* Simple help text */
 static const char *help_text[] = {
@@ -90,7 +104,11 @@ static const char *help_text[] = {
     "chmod <path> <r> <w> - set perms",
     "export <file> - export state",
     "import <file> - import state",
-    "complete <prefix> - autocomplete"
+    "complete <prefix> - autocomplete",
+    "rename <old> <new> - rename file or directory",
+    "stat <path> - show file/directory metadata",
+    "history_prev - get previous history entry",
+    "history_next - get next history entry"
 };
 
 static void append_line(UBuffer *b, const char *s) {
@@ -179,6 +197,21 @@ static CommandResult cmd_touch(TokenArray *t) {
         cr_set_err(&r, "touch: cannot create file");
     } else {
         cr_set_out(&r, "");
+        /* Check for unrecognized extension */
+        {
+            char *ext = u_get_extension(t->items[1]);
+            if (ext) {
+                if (!u_is_valid_extension(ext)) {
+                    UBuffer warn;
+                    ubuf_init(&warn);
+                    ubuf_append_str(&warn, "Warning: Unrecognized file extension: .");
+                    ubuf_append_str(&warn, ext);
+                    cr_set_err(&r, ubuf_to_string(&warn));
+                    ubuf_free(&warn);
+                }
+                u_free(ext);
+            }
+        }
         {
             Operation op;
             op.type = OP_CREATE_FILE;
@@ -452,6 +485,32 @@ static CommandResult cmd_undo(TokenArray *t) {
         fs_write(op.path, op.old_content ? op.old_content : "", 0);
     } else if (op.type == OP_MOVE) {
         fs_move(op.new_content, op.old_content);
+    } else if (op.type == OP_RENAME) {
+        /* Construct path with new name to find the renamed node */
+        UBuffer path_buf;
+        char *parent_path;
+        int path_len = u_strlen(op.path);
+        int last_slash = -1;
+        int i;
+        for (i = path_len - 1; i >= 0; i--) {
+            if (op.path[i] == '/') {
+                last_slash = i;
+                break;
+            }
+        }
+        ubuf_init(&path_buf);
+        if (last_slash <= 0) {
+            ubuf_append_char(&path_buf, '/');
+        } else {
+            for (i = 0; i < last_slash; i++) {
+                ubuf_append_char(&path_buf, op.path[i]);
+            }
+        }
+        ubuf_append_char(&path_buf, '/');
+        ubuf_append_str(&path_buf, op.new_content);
+        parent_path = ubuf_to_string(&path_buf);
+        fs_rename(parent_path, op.old_content);
+        u_free(parent_path);
     }
     stack_push(&redo_stack, op);
     cr_set_out(&r, "");
@@ -477,6 +536,32 @@ static CommandResult cmd_redo(TokenArray *t) {
         fs_rm(op.path);
     } else if (op.type == OP_MOVE) {
         fs_move(op.old_content, op.new_content);
+    } else if (op.type == OP_RENAME) {
+        /* Construct path with old name to find the node after undo */
+        UBuffer path_buf;
+        char *parent_path;
+        int path_len = u_strlen(op.path);
+        int last_slash = -1;
+        int i;
+        for (i = path_len - 1; i >= 0; i--) {
+            if (op.path[i] == '/') {
+                last_slash = i;
+                break;
+            }
+        }
+        ubuf_init(&path_buf);
+        if (last_slash <= 0) {
+            ubuf_append_char(&path_buf, '/');
+        } else {
+            for (i = 0; i < last_slash; i++) {
+                ubuf_append_char(&path_buf, op.path[i]);
+            }
+        }
+        ubuf_append_char(&path_buf, '/');
+        ubuf_append_str(&path_buf, op.old_content);
+        parent_path = ubuf_to_string(&path_buf);
+        fs_rename(parent_path, op.new_content);
+        u_free(parent_path);
     }
     stack_push(&undo_stack, op);
     cr_set_out(&r, "");
@@ -728,6 +813,183 @@ static CommandResult cmd_tree(TokenArray *t) {
     return r;
 }
 
+/* rename command */
+
+static CommandResult cmd_rename(TokenArray *t) {
+    CommandResult r;
+    cr_init(&r);
+    if (t->count < 3) {
+        r.status = 1;
+        cr_set_err(&r, "rename: need <old> <new>");
+        return r;
+    }
+    /* Validate new name doesn't contain / */
+    {
+        int i;
+        for (i = 0; t->items[2][i] != 0; i++) {
+            if (t->items[2][i] == '/') {
+                r.status = 1;
+                cr_set_err(&r, "rename: new name must not contain /");
+                return r;
+            }
+        }
+    }
+    {
+        TreeNode *node = fs_find_node(t->items[1]);
+        char *old_name;
+        if (!node) {
+            r.status = 1;
+            cr_set_err(&r, "rename: path not found");
+            return r;
+        }
+        old_name = u_strdup(node->name);
+        if (fs_rename(t->items[1], t->items[2]) != 0) {
+            r.status = 1;
+            cr_set_err(&r, "rename: failed (name may already exist)");
+            u_free(old_name);
+            return r;
+        }
+        /* Record undo */
+        {
+            Operation op;
+            op.type = OP_RENAME;
+            op.path = u_strdup(t->items[1]);
+            op.old_content = old_name;
+            op.new_content = u_strdup(t->items[2]);
+            stack_push(&undo_stack, op);
+            stack_clear(&redo_stack);
+        }
+        cr_set_out(&r, "Renamed successfully");
+    }
+    return r;
+}
+
+/* stat command */
+
+static CommandResult cmd_stat(TokenArray *t) {
+    CommandResult r;
+    cr_init(&r);
+    if (t->count < 2) {
+        r.status = 1;
+        cr_set_err(&r, "stat: need path");
+        return r;
+    }
+    {
+        TreeNode *node = fs_find_node(t->items[1]);
+        UBuffer b;
+        char num[32];
+        if (!node) {
+            r.status = 1;
+            cr_set_err(&r, "stat: path not found");
+            return r;
+        }
+        ubuf_init(&b);
+        ubuf_append_str(&b, "Name: ");
+        ubuf_append_str(&b, node->name);
+        ubuf_append_char(&b, '\n');
+        
+        ubuf_append_str(&b, "Type: ");
+        ubuf_append_str(&b, node->type == NODE_FILE ? "file" : "directory");
+        ubuf_append_char(&b, '\n');
+        
+        if (node->type == NODE_FILE) {
+            ubuf_append_str(&b, "Size: ");
+            u_itoa(node->content_size, num);
+            ubuf_append_str(&b, num);
+            ubuf_append_char(&b, '\n');
+            
+            ubuf_append_str(&b, "Readable: ");
+            ubuf_append_str(&b, node->perms_read ? "yes" : "no");
+            ubuf_append_char(&b, '\n');
+            
+            ubuf_append_str(&b, "Writable: ");
+            ubuf_append_str(&b, node->perms_write ? "yes" : "no");
+            ubuf_append_char(&b, '\n');
+        } else {
+            ubuf_append_str(&b, "Children: ");
+            u_itoa(node->child_count, num);
+            ubuf_append_str(&b, num);
+            ubuf_append_char(&b, '\n');
+        }
+        
+        ubuf_append_str(&b, "Created: ");
+        {
+            char ts[32];
+            unsigned long long t = node->created_at;
+            /* Simple format: just the timestamp number */
+            int i = 0, j = 0;
+            char tmp[32];
+            if (t == 0) {
+                ts[0] = '0'; ts[1] = 0;
+            } else {
+                while (t > 0) {
+                    tmp[i++] = '0' + (t % 10);
+                    t /= 10;
+                }
+                while (i > 0) {
+                    ts[j++] = tmp[--i];
+                }
+                ts[j] = 0;
+            }
+            ubuf_append_str(&b, ts);
+        }
+        ubuf_append_char(&b, '\n');
+        
+        ubuf_append_str(&b, "Modified: ");
+        {
+            char ts[32];
+            unsigned long long t = node->modified_at;
+            int i = 0, j = 0;
+            char tmp[32];
+            if (t == 0) {
+                ts[0] = '0'; ts[1] = 0;
+            } else {
+                while (t > 0) {
+                    tmp[i++] = '0' + (t % 10);
+                    t /= 10;
+                }
+                while (i > 0) {
+                    ts[j++] = tmp[--i];
+                }
+                ts[j] = 0;
+            }
+            ubuf_append_str(&b, ts);
+        }
+        ubuf_append_char(&b, '\n');
+        
+        r.stdout_text = ubuf_to_string(&b);
+    }
+    return r;
+}
+
+/* History navigation commands */
+
+static CommandResult cmd_history_prev(TokenArray *t) {
+    CommandResult r;
+    char *prev;
+    cr_init(&r);
+    prev = history_prev();
+    if (prev) {
+        r.stdout_text = prev;
+    } else {
+        cr_set_out(&r, "");
+    }
+    return r;
+}
+
+static CommandResult cmd_history_next(TokenArray *t) {
+    CommandResult r;
+    char *next;
+    cr_init(&r);
+    next = history_next();
+    if (next) {
+        r.stdout_text = next;
+    } else {
+        cr_set_out(&r, "");
+    }
+    return r;
+}
+
 /* Autocomplete */
 
 static CommandResult cmd_complete(TokenArray *t) {
@@ -787,9 +1049,39 @@ CommandResult cmd_execute(TokenArray *tokens) {
     if (u_strcmp(tokens->items[0], "mv") == 0) return cmd_mv(tokens);
     if (u_strcmp(tokens->items[0], "tree") == 0) return cmd_tree(tokens);
     if (u_strcmp(tokens->items[0], "complete") == 0) return cmd_complete(tokens);
+    if (u_strcmp(tokens->items[0], "rename") == 0) return cmd_rename(tokens);
+    if (u_strcmp(tokens->items[0], "stat") == 0) return cmd_stat(tokens);
+    if (u_strcmp(tokens->items[0], "history_prev") == 0) return cmd_history_prev(tokens);
+    if (u_strcmp(tokens->items[0], "history_next") == 0) return cmd_history_next(tokens);
 
-    r.status = 1;
-    cr_set_err(&r, "unknown command");
+    /* Unknown command - suggest closest using Levenshtein distance */
+    {
+        int i;
+        int min_dist = 999;
+        const char *best_match = 0;
+        UBuffer err;
+        
+        for (i = 0; i < all_commands_count; i++) {
+            int dist = u_levenshtein(tokens->items[0], all_commands[i]);
+            if (dist < min_dist) {
+                min_dist = dist;
+                best_match = all_commands[i];
+            }
+        }
+        
+        ubuf_init(&err);
+        ubuf_append_str(&err, "Unknown command: ");
+        ubuf_append_str(&err, tokens->items[0]);
+        
+        if (best_match && min_dist <= 2) {
+            ubuf_append_str(&err, "\nDid you mean: ");
+            ubuf_append_str(&err, best_match);
+            ubuf_append_str(&err, " ?");
+        }
+        
+        r.status = 1;
+        r.stderr_text = ubuf_to_string(&err);
+    }
     return r;
 }
 

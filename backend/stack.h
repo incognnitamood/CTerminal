@@ -7,7 +7,8 @@ typedef enum {
     OP_CREATE_DIR,
     OP_DELETE_DIR,
     OP_WRITE_FILE,
-    OP_MOVE
+    OP_MOVE,
+    OP_RENAME
 } OperationType;
 
 typedef struct {

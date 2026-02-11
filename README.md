@@ -1,11 +1,22 @@
-## DSA Web Terminal
+# CTerminal - Educational Unix-like Shell
 
-A web-based terminal with a **C backend** that simulates a small Unix-like shell using **pure in-memory data structures** (no OS filesystem APIs except for export/import files).  
-The **frontend** is HTML/CSS/JavaScript and talks to the backend via a small **Node bridge** over JSON.
+A fully-featured web-based terminal emulator with a **C backend** implementing a Unix-like shell entirely using custom in-memory data structures. Features a modern web UI that communicates with the backend via a Node.js bridge using JSON-RPC over HTTP.
+
+Perfect for learning about **data structures**, **systems programming**, and **web application architecture**.
 
 ---
 
-## Features
+## Key Highlights
+
+- **100% Custom Data Structures** - No standard library data structure APIs used
+- **Virtual In-Memory Filesystem** - Complete Unix-like terminal experience
+- **Full Undo/Redo Support** - Stack-based operation reversibility
+- **Trie-Based Autocomplete** - Fast prefix-based command suggestions
+- **Real-Time Web UI** - Dark theme terminal with JSON-based backend communication
+- **Persistent State** - Export/import filesystem snapshots
+- **Educational Codebase** - Written for maximum clarity and learning
+
+## ✨ Implemented Features
 
 - **Virtual filesystem (in-memory)**
   - Directories and files, rooted at `/`

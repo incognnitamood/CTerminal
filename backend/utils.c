@@ -209,3 +209,86 @@ char *ubuf_to_string(UBuffer *b) {
     return out;
 }
 
+/* Levenshtein distance for command suggestions */
+static int u_min3(int a, int b, int c) {
+    int m = a;
+    if (b < m) m = b;
+    if (c < m) m = c;
+    return m;
+}
+
+int u_levenshtein(const char *s1, const char *s2) {
+    int len1 = u_strlen(s1);
+    int len2 = u_strlen(s2);
+    int *prev, *curr, *tmp;
+    int i, j, cost, result;
+    
+    if (len1 == 0) return len2;
+    if (len2 == 0) return len1;
+    
+    prev = (int *)u_malloc(sizeof(int) * (len2 + 1));
+    curr = (int *)u_malloc(sizeof(int) * (len2 + 1));
+    
+    for (j = 0; j <= len2; j++) {
+        prev[j] = j;
+    }
+    
+    for (i = 1; i <= len1; i++) {
+        curr[0] = i;
+        for (j = 1; j <= len2; j++) {
+            cost = (s1[i-1] == s2[j-1]) ? 0 : 1;
+            curr[j] = u_min3(
+                prev[j] + 1,       /* deletion */
+                curr[j-1] + 1,     /* insertion */
+                prev[j-1] + cost   /* substitution */
+            );
+        }
+        tmp = prev;
+        prev = curr;
+        curr = tmp;
+    }
+    
+    result = prev[len2];
+    u_free(prev);
+    u_free(curr);
+    return result;
+}
+
+/* Valid file extensions */
+static const char *valid_extensions[] = {
+    "c", "txt", "md", "json", "log", "html", "css"
+};
+static const int valid_ext_count = 7;
+
+int u_is_valid_extension(const char *ext) {
+    int i;
+    if (!ext || ext[0] == 0) return 1; /* No extension is OK */
+    for (i = 0; i < valid_ext_count; i++) {
+        if (u_strcmp(ext, valid_extensions[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+char *u_get_extension(const char *filename) {
+    int i;
+    int last_dot = -1;
+    int len = u_strlen(filename);
+    
+    /* Find the last dot */
+    for (i = len - 1; i >= 0; i--) {
+        if (filename[i] == '.') {
+            last_dot = i;
+            break;
+        }
+        if (filename[i] == '/') break; /* Stop at path separator */
+    }
+    
+    if (last_dot == -1 || last_dot == len - 1) {
+        return 0; /* No extension */
+    }
+    
+    return u_strdup(filename + last_dot + 1);
+}
+
