@@ -2,18 +2,84 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>DSA Web Terminal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CTerminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="terminal">
-      <div id="output"></div>
-      <div id="input-line">
-        <span id="prompt">$</span>
-        <input id="cmd-input" autocomplete="off" />
-      </div>
-      <div id="autocomplete"></div>
+    <div class="background-gradient"></div>
+    
+    <div id="terminal" class="terminal-container" role="application" aria-label="CTerminal Pro">
+      <!-- macOS-style Header -->
+      <header class="terminal-header">
+        <div class="window-controls">
+          <button class="control close" aria-label="Close" title="Close"></button>
+          <button class="control minimize" aria-label="Minimize" title="Minimize"></button>
+          <button class="control maximize" aria-label="Maximize" title="Maximize"></button>
+        </div>
+        <h1 class="terminal-title">CTERMINAL</h1>
+        <div class="header-spacer"></div>
+      </header>
+
+      <!-- Output Area -->
+      <main id="output" class="terminal-output" role="log" aria-live="polite" aria-label="Command output">
+        <!-- Command blocks will be inserted here -->
+      </main>
+
+      <!-- Input Area -->
+      <footer class="terminal-input-area">
+        <div class="input-wrapper">
+          <span class="prompt" aria-hidden="true">
+            <span class="prompt-user">user</span>
+            <span class="prompt-at">@</span>
+            <span class="prompt-host">cterminal</span>
+            <span class="prompt-separator">:</span>
+            <span id="prompt-cwd" class="prompt-cwd">/</span>
+            <span class="prompt-symbol">$</span>
+          </span>
+          <div class="input-container">
+            <textarea
+              id="cmd-input"
+              class="cmd-input"
+              rows="1"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-label="Command input"
+              placeholder="Type a command..."
+            ></textarea>
+            <span id="ghost-text" class="ghost-text" aria-hidden="true"></span>
+          </div>
+        </div>
+        
+        <!-- Autocomplete Dropdown -->
+        <div id="autocomplete" class="autocomplete-dropdown" role="listbox" aria-label="Command suggestions">
+          <!-- Suggestions will be inserted here -->
+        </div>
+      </footer>
     </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <span class="status-item">
+        <span class="status-dot connected"></span>
+        <span id="connection-status">Connected</span>
+      </span>
+      <span class="status-item">
+        <span id="command-count">0</span> commands
+      </span>
+      <span class="status-item hint">
+        <kbd>Tab</kbd> autocomplete • <kbd>↑↓</kbd> history • <kbd>Enter</kbd> execute
+      </span>
+    </div>
+
     <script src="script.js"></script>
   </body>
 </html>

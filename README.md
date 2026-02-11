@@ -18,44 +18,75 @@ Perfect for learning about **data structures**, **systems programming**, and **w
 
 ## ✨ Implemented Features
 
-- **Virtual filesystem (in-memory)**
-  - Directories and files, rooted at `/`
-  - Commands: `mkdir`, `ls`, `cd`, `touch`, `write`, `read`, `rm`, `rmdir`, `cat`, `pwd`
-  - File permissions: simple read/write bits (`chmod <path> <r> <w>`)
-- **Command history**
-  - Last 100 commands, in-memory doubly linked list
-  - `history` shows all stored commands
-- **Undo / Redo**
-  - Stack-based undo/redo of:
-    - file/dir creation (`mkdir`, `touch`)
-    - file content writes (`write`)
-    - file deletes (`rm`)
-    - file moves (`mv`)
-  - Commands: `undo`, `redo`
-- **Variables (environment-style)**
-  - Hash map (chaining) with `set`, `get`, `unset`, `listenv`
-- **Autocomplete**
-  - Trie-based prefix autocomplete for command names (and can be extended to filenames)
-  - Backend command: `complete <prefix>`
-  - Frontend uses this on `Tab`
-- **Search**
-  - Recursive text search inside virtual filesystem: `search <start_path> <keyword>`
-- **Help & logging**
-  - `help` / `help <cmd>` for built-in help text
-  - Circular queue logger for recent actions: `log`
-- **State export / import**
-  - Exports the **filesystem tree** (dirs, files, permissions, content) to a real file
-  - Imports from that file and reconstructs the tree
-  - Commands: `export <filename>`, `import <filename>`
-- **Extra commands**
-  - `cp <src> <dst>` (files; dirs created but shallow)
-  - `mv <src> <dst>` (files only)
-  - `tree [path]` (ASCII tree of current or given directory)
-- **Web UI**
-  - Dark “hacker” terminal look
-  - Command input with history (arrow keys)
-  - `clear` command to wipe screen (frontend)
-  - Backend wired via HTTP bridge (`node bridge/server.js`)
+### Core Filesystem Operations
+- **Virtual In-Memory Filesystem** - Complete Unix-style directory tree rooted at `/`
+  - `mkdir <dir>` - Create directories
+  - `ls [path]` - List directory contents with permissions and file info
+  - `cd <path>` - Change current directory (no args defaults to `/`)
+  - `pwd` - Display working directory path
+  - `touch <file>` - Create empty files
+  - `rm <file>` - Remove files (respects write permissions)
+  - `rmdir <dir>` - Remove empty directories only
+  - `cat <file>` - Display file contents with line numbers
+  - `read <file>` - Display raw file contents without line numbers
+  - `write <file> <text>` - Write/overwrite file contents
+  - `tree [path]` - Display directory structure as ASCII tree
+
+### File Management
+- **File Copying** - `cp <src> <dst>` with shallow directory creation support
+- **File Moving** - `mv <src> <dst>` with full undo/redo support
+- **File Permissions** - `chmod <path> <read:0|1> <write:0|1>` for read/write control
+
+### Undo/Redo System (Stack-Based)
+- File creation and deletion with `undo`/`redo`
+- Directory creation reversal
+- File content modification tracking
+- File move operation reversal
+- Dynamic stack stores operation history
+
+### Command History
+- Stores up to **100 recent commands** using doubly-linked list
+- `history` - Display all stored commands with execution order
+- Full arrow key navigation support (up/down) in web UI
+- Quick access to previously executed commands
+
+### Environment Variables
+- Hash map-based environment with collision chaining
+- `set <key> <value>` - Store variable with custom key
+- `get <key>` - Retrieve variable value
+- `unset <key>` - Delete variable entry
+- `listenv` - Display all variables as KEY=VALUE pairs
+- djb2 hash function with singly-linked list collision chains
+
+### Autocomplete & Help System
+- **Trie-based prefix autocomplete** for fast command suggestions
+- `complete <prefix>` - Backend autocomplete engine
+- Tab key support in web UI with dropdown suggestions
+- `help` - Display all available commands
+- `help <cmd>` - Show detailed help for specific command
+
+### Search & Navigation
+- **Full-text recursive search** throughout the filesystem
+- `search <path> <keyword>` - Find keyword in files starting from specified path
+- Case-sensitive file content search
+
+### Logging & Debugging
+- Circular buffer logger for tracking recent operations
+- `log` - Display recent action logs
+
+### State Management & Persistence
+- `export <filename>` - Serialize entire filesystem tree to file
+- `import <filename>` - Import and reconstruct filesystem from file
+- Preserves: directory structure, files, permissions, and content
+
+### Web UI Features
+- **Dark terminal theme** - Professional "hacker" aesthetic with custom styling
+- **Live command history** - Navigate command history with arrow keys (up/down)
+- **Autocomplete dropdown** - Tab key triggers autocomplete suggestions
+- **Output formatting** - Separate color-coded stdout and stderr rendering
+- **Status feedback** - Real-time command success/error indication
+- `clear` - Clear terminal output while preserving state
+- **JSON Protocol** - Real-time communication with backend over HTTP
 
 ---
 
