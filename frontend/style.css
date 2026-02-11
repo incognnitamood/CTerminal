@@ -1,0 +1,86 @@
+body {
+  margin: 0;
+  background: #050b16;
+  color: #e0ffe0;
+  font-family: "Courier New", monospace;
+}
+
+#terminal {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+#output {
+  flex: 1;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 13px;
+  text-shadow: 0 0 2px rgba(0, 255, 128, 0.3);
+}
+
+#input-line {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #1f3b4d;
+  padding-top: 6px;
+}
+
+#prompt {
+  margin-right: 6px;
+  color: #00ff80;
+}
+
+#cmd-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #e0ffe0;
+  font-family: inherit;
+  font-size: 13px;
+  caret-color: #00ff80;
+}
+
+#autocomplete {
+  position: absolute;
+  bottom: 36px;
+  left: 12px;
+  background: #020610;
+  border: 1px solid #1f3b4d;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 12px;
+  display: none;
+}
+
+.autocomplete-item {
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background: #14324a;
+}
+
+.prompt-line {
+  color: #00ff80;
+}
+
+.stderr-line {
+  color: #ff6b6b;
+}
+
+.banner-line {
+  color: #00ffbf;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #14324a;
+}
+
